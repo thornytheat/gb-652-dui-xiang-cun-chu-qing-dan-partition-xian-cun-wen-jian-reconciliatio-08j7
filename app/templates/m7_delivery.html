@@ -1,0 +1,92 @@
+{% extends "base.html" %}{% block content %}
+<div class="grid module-7">
+  <section class="panel panel--primary">
+    <div class="panel__head"><h2>对账批次分区差异</h2><span class="panel__meta">M7 · {{ data.batch_id }} · 完整差异仅内部可见</span></div>
+    <div class="panel__body panel__body--scroll">
+      <table class="ledger">
+        <thead><tr><th>分区</th><th>缺失</th><th>冲突</th><th>孤儿</th><th>匹配</th><th>授权状态</th></tr></thead>
+        <tbody>
+        {% for partition in data.partitions.values() %}
+          <tr><td>{{ partition.partition }}</td><td class="num">{{ partition.missing_count }}</td>
+          <td class="num">{{ partition.conflict_count }}</td><td class="num">{{ partition.orphan_count }}</td>
+          <td class="num">{{ partition.matched_count }}</td>
+          <td>{% for g in partition.grants %}{{ g.vendor }}:{{ g.status }} {% else %}未授权{% endfor %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <div class="stack">
+    <section class="panel">
+      <div class="panel__head"><h2>授权 / 收回</h2><span class="panel__meta">按 批次+供应商+分区</span></div>
+      <div class="panel__body">
+        <form class="m7-form" data-action="/api/delivery/grants">
+          <input name="batch_id" placeholder="batch_id" value="{{ data.batch_id }}">
+          <input name="vendor" placeholder="供应商 vendor">
+          <input name="partition" placeholder="分区 partition">
+          <button class="btn btn--primary" type="submit">发放授权</button>
+        </form>
+        <form class="m7-form" data-action="/api/delivery/grants/revoke">
+          <input name="batch_id" placeholder="batch_id" value="{{ data.batch_id }}">
+          <input name="vendor" placeholder="供应商 vendor">
+          <input name="partition" placeholder="分区 partition">
+          <button class="btn" type="submit">收回授权</button>
+        </form>
+        <pre class="result m7-result">等待操作</pre>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel__head"><h2>供应商外发申请</h2><span class="panel__meta">仅返回授权分区的缺失对象键</span></div>
+      <div class="panel__body">
+        <form class="m7-form" data-action="/api/delivery/download-requests">
+          <input name="batch_id" placeholder="batch_id" value="{{ data.batch_id }}">
+          <input name="vendor" placeholder="供应商 vendor">
+          <input name="partition" placeholder="分区 partition">
+          <input name="request_token" placeholder="幂等请求令牌 request_token">
+          <button class="btn btn--primary" type="submit">申请下载地址</button>
+        </form>
+        <form class="m7-form" data-action="ticket">
+          <input name="ticket_id" placeholder="ticket_id（回读/下载）">
+          <button class="btn" type="submit">回读裁剪内容</button>
+        </form>
+        <pre class="result m7-result">等待操作</pre>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel__head"><h2>内部审计（须填理由）</h2><span class="panel__meta">留痕成功后才返回完整证据</span></div>
+      <div class="panel__body">
+        <form class="m7-form" data-action="/api/delivery/audit">
+          <input name="batch_id" placeholder="batch_id" value="{{ data.batch_id }}">
+          <input name="auditor" placeholder="审计人 auditor">
+          <input name="reason" placeholder="查阅理由 reason">
+          <input name="request_token" placeholder="幂等请求令牌 request_token">
+          <button class="btn btn--primary" type="submit">凭理由调完整证据</button>
+        </form>
+        <button class="btn" data-action-logs="/api/delivery/access-logs?batch_id={{ data.batch_id }}">查看留痕</button>
+        <pre class="result m7-result">等待操作</pre>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+document.querySelectorAll(".m7-form").forEach(form=>{
+  form.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const out=form.parentElement.querySelector(".m7-result");
+    const payload=Object.fromEntries(new FormData(form).entries());
+    try{
+      if(form.dataset.action==="ticket"){
+        const res=await fetch(`/api/delivery/tickets/${encodeURIComponent(payload.ticket_id)}`);
+        out.textContent=await res.text(); return;
+      }
+      const res=await fetch(form.dataset.action,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+      out.textContent=await res.text();
+    }catch(e){out.textContent="请求失败，请重试";}
+  });
+});
+document.querySelector("[data-action-logs]")?.addEventListener("click",async btn=>{
+  const res=await fetch(btn.target.dataset.actionLogs);
+  btn.target.parentElement.querySelector(".m7-result").textContent=await res.text();
+});
+</script>
+{% endblock %}

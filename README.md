@@ -10,6 +10,7 @@
 - M4 分区判定：`/api/partitions`
 - M5 差异对账：`/api/reconcile`
 - M6 批次导出：`/api/export/differences.csv`
+- M7 分区授权交付：`/api/delivery/batches`、`/api/delivery/grants`、`/api/delivery/tickets/{id}/download`、`/api/delivery/audit`
 
         ## 核心规则
 
